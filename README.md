@@ -1,33 +1,40 @@
 # AI Resume Screening Assistant
 
 ## Project Description
-AI Resume Screening Assistant analyzes resumes based on job descriptions using Gemini AI.
+
+AI Resume Screening Assistant is a web application that compares a candidate's resume with a given Job Description and generates AI-based insights using Gemini AI.
+
+The application analyzes the resume and provides:
+- Resume Match Score
+- Candidate Strengths
+- Missing Skills
+- Interview Questions
+- Hiring Recommendation
+- Role Recommendations
+- Training Recommendations
+
 
 ## Technologies Used
-- Python
-- Flask
+
+Frontend:
 - HTML
 - CSS
 - JavaScript
+
+Backend:
+- Python
+- Flask
+
+AI Model:
+- Gemini AI API
+
+Libraries:
 - PyPDF2
-- Gemini API
+- python-dotenv
+
 
 ## How to Run
 
 1. Clone the repository
 
-2. Install dependencies:
-
-pip install -r requirements.txt
-
-3. Add your Gemini API key in .env file:
-
-GEMINI_API_KEY=your_api_key
-
-4. Run the application:
-
-python app.py
-
-5. Open browser:
-
-http://127.0.0.1:5000
+2. Install required packages:
