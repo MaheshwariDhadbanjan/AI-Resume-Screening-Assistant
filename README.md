@@ -32,6 +32,20 @@ Libraries:
 - PyPDF2
 - python-dotenv
 
+## Screenshots
+
+### Home Page
+
+![Home Page](Screenshot/home_page.png)
+
+### Result Page 1
+
+![Result Page 1](Screenshot/result1_page.png)
+
+### Result Page 2
+
+![Result Page 2](Screenshot/result2_page.png)
+
 
 ## How to Run
 
