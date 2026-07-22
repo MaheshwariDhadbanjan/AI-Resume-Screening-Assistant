@@ -1,83 +1,68 @@
 import os
 from google import genai
 from dotenv import load_dotenv
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from PyPDF2 import PdfReader
 from docx import Document
-from flask import Flask, render_template, request
 
 load_dotenv()
+
+app = Flask(__name__)
+CORS(app)
 
 client = genai.Client(
     api_key=os.getenv("GEMINI_API_KEY")
 )
 
-app = Flask(__name__)
+
+def extract_resume_text(file):
+    filename = file.filename.lower()
+
+    if filename.endswith(".pdf"):
+        pdf_reader = PdfReader(file)
+        text = ""
+
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text
+
+        return text
+
+    elif filename.endswith(".docx"):
+        doc = Document(file)
+        text = ""
+
+        for para in doc.paragraphs:
+            text += para.text + "\n"
+
+        return text
+
+    return ""
 
 
-@app.route('/')
+@app.route("/")
 def home():
-    return render_template('index.html')
+    return jsonify({"message": "AI Resume Screening Backend Running"})
 
 
-@app.route('/analyze', methods=['POST'])
+@app.route("/analyze", methods=["POST"])
 def analyze():
 
-    resume = request.files.get('resume')
-    resume_text_input = request.form.get('resume_text', '').strip()
-    job_description = request.form.get('job_description', '').strip()
+    job_description = request.form.get("job_description")
+    resume_text = request.form.get("resume_text", "").strip()
 
-    resume_text = ""
+    if "resume" in request.files:
+        file = request.files["resume"]
 
-    # -------------------------------
-    # Read uploaded file if available
-    # -------------------------------
-    if resume and resume.filename != "":
+        if file.filename != "":
+            resume_text = extract_resume_text(file)
 
-        filename = resume.filename.lower()
-
-        try:
-            if filename.endswith(".pdf"):
-
-                pdf_reader = PdfReader(resume)
-
-                for page in pdf_reader.pages:
-                    text = page.extract_text()
-                    if text:
-                        resume_text += text
-
-            elif filename.endswith(".docx"):
-
-                document = Document(resume)
-
-                for para in document.paragraphs:
-                    resume_text += para.text + "\n"
-
-            else:
-                return """
-                <h3>Invalid file format.</h3>
-                <p>Please upload only PDF or DOCX files.</p>
-                <a href="/">Go Back</a>
-                """
-
-        except Exception as e:
-            return f"""
-            <h3>Error reading uploaded file.</h3>
-            <p>{e}</p>
-            <a href="/">Go Back</a>
-            """
-
-    # -------------------------------
-    # Use pasted resume text
-    # -------------------------------
-    elif resume_text_input:
-        resume_text = resume_text_input
-
-    else:
-        return """
-        <h3>No Resume Provided</h3>
-        <p>Please upload a PDF/DOCX resume or paste resume text.</p>
-        <a href="/">Go Back</a>
-        """
+    if not resume_text:
+        return jsonify({
+            "error": "Please upload a PDF/DOCX resume or enter resume text."
+        }), 400
 
     prompt = f"""
 Compare the following Resume and Job Description.
@@ -88,41 +73,46 @@ Resume:
 Job Description:
 {job_description}
 
-Analyze the resume against the job description and return the result in HTML using the following format.
+Return ONLY HTML.
 
-<b>Resume Match Score:</b> Percentage
+Use this format:
 
-<h4>Candidate Strengths:</h4>
+<h2>Resume Match Score</h2>
+<p>85%</p>
+
+<h2>Candidate Strengths</h2>
 <ul>
-<li>Point 1</li>
-<li>Point 2</li>
+<li>Strength 1</li>
+<li>Strength 2</li>
+<li>Strength 3</li>
 </ul>
 
-<b>Missing Skills:</b>
+<h2>Missing Skills</h2>
 <ul>
-<li>Point 1</li>
-<li>Point 2</li>
+<li>Skill 1</li>
+<li>Skill 2</li>
+<li>Skill 3</li>
 </ul>
 
-<b>Recommended Interview Questions:</b>
+<h2>Recommended Interview Questions</h2>
 <ol>
-<li>Question</li>
-<li>Question</li>
-<li>Question</li>
-<li>Question</li>
-<li>Question</li>
+<li>Question 1</li>
+<li>Question 2</li>
+<li>Question 3</li>
+<li>Question 4</li>
+<li>Question 5</li>
 </ol>
 
-<b>Overall Hiring Recommendation:</b>
+<h2>Overall Hiring Recommendation</h2>
 <p>One short sentence.</p>
 
-<b>Role Recommendations:</b>
+<h2>Role Recommendations</h2>
 <ul>
 <li>Role 1</li>
 <li>Role 2</li>
 </ul>
 
-<b>Training Recommendations:</b>
+<h2>Training Recommendations</h2>
 <ul>
 <li>Training 1</li>
 <li>Training 2</li>
@@ -132,32 +122,27 @@ Rules:
 
 Return only HTML.
 
-Keep the response concise.
+Do not use markdown.
 
-Base the analysis only on the uploaded resume and job description.
-
-Do not use Markdown symbols like ** or ##.
+Keep the response short.
 """
 
     try:
 
         response = client.models.generate_content(
-        model="gemini-flash-latest",
-        contents=prompt
-    )
-
-        return render_template(
-            "result.html",
-            result=response.text
+            model="gemini-flash-latest",
+            contents=prompt
         )
+
+        return jsonify({
+            "result": response.text
+        })
 
     except Exception as e:
 
-        return f"""
-        <h2>Something went wrong.</h2>
-        <p>{e}</p>
-        <a href="/">Try Again</a>
-        """
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 
 if __name__ == "__main__":

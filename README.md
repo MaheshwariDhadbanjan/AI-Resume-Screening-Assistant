@@ -38,3 +38,16 @@ Libraries:
 1. Clone the repository
 
 2. Install required packages:
+## Screenshots
+
+### Home Page
+
+![Home Page](Screenshot/home_page.png)
+
+### Result Page 1
+
+![Result Page 1](Screenshot/result1_page.png)
+
+### Result Page 2
+
+![Result Page 2](Screenshot/result2_page.png)
