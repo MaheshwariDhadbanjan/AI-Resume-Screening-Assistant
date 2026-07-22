@@ -2,6 +2,7 @@ import os
 from google import genai
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
+from docx import Document
 from flask import Flask, render_template, request
 
 load_dotenv()
@@ -21,17 +22,62 @@ def home():
 @app.route('/analyze', methods=['POST'])
 def analyze():
 
-    resume = request.files['resume']
-    job_description = request.form['job_description']
-
-    pdf_reader = PdfReader(resume)
+    resume = request.files.get('resume')
+    resume_text_input = request.form.get('resume_text', '').strip()
+    job_description = request.form.get('job_description', '').strip()
 
     resume_text = ""
 
-    for page in pdf_reader.pages:
-        text = page.extract_text()
-        if text:
-            resume_text += text
+    # -------------------------------
+    # Read uploaded file if available
+    # -------------------------------
+    if resume and resume.filename != "":
+
+        filename = resume.filename.lower()
+
+        try:
+            if filename.endswith(".pdf"):
+
+                pdf_reader = PdfReader(resume)
+
+                for page in pdf_reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        resume_text += text
+
+            elif filename.endswith(".docx"):
+
+                document = Document(resume)
+
+                for para in document.paragraphs:
+                    resume_text += para.text + "\n"
+
+            else:
+                return """
+                <h3>Invalid file format.</h3>
+                <p>Please upload only PDF or DOCX files.</p>
+                <a href="/">Go Back</a>
+                """
+
+        except Exception as e:
+            return f"""
+            <h3>Error reading uploaded file.</h3>
+            <p>{e}</p>
+            <a href="/">Go Back</a>
+            """
+
+    # -------------------------------
+    # Use pasted resume text
+    # -------------------------------
+    elif resume_text_input:
+        resume_text = resume_text_input
+
+    else:
+        return """
+        <h3>No Resume Provided</h3>
+        <p>Please upload a PDF/DOCX resume or paste resume text.</p>
+        <a href="/">Go Back</a>
+        """
 
     prompt = f"""
 Compare the following Resume and Job Description.
@@ -46,64 +92,72 @@ Analyze the resume against the job description and return the result in HTML usi
 
 <b>Resume Match Score:</b> Percentage
 
-<b>Candidate Strengths:</b>
-- Point 1
-- Point 2
+<h4>Candidate Strengths:</h4>
+<ul>
+<li>Point 1</li>
+<li>Point 2</li>
+</ul>
 
 <b>Missing Skills:</b>
-- Point 1
-- Point 2
+<ul>
+<li>Point 1</li>
+<li>Point 2</li>
+</ul>
 
 <b>Recommended Interview Questions:</b>
-1. Question
-2. Question
-3. Question
-4. Question
-5. Question
+<ol>
+<li>Question</li>
+<li>Question</li>
+<li>Question</li>
+<li>Question</li>
+<li>Question</li>
+</ol>
 
 <b>Overall Hiring Recommendation:</b>
-One short sentence.
+<p>One short sentence.</p>
 
 <b>Role Recommendations:</b>
-- Role 1
-- Role 2
+<ul>
+<li>Role 1</li>
+<li>Role 2</li>
+</ul>
 
 <b>Training Recommendations:</b>
-- Training 1
-- Training 2
+<ul>
+<li>Training 1</li>
+<li>Training 2</li>
+</ul>
 
 Rules:
-- Keep the response short.
-- Base the analysis only on the uploaded resume and job description.
-- Do not use markdown symbols like ** or ##.
-- Return only HTML.
+
+Return only HTML.
+
+Keep the response concise.
+
+Base the analysis only on the uploaded resume and job description.
+
+Do not use Markdown symbols like ** or ##.
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.5-flash",
+    try:
+
+        response = client.models.generate_content(
+        model="gemini-flash-latest",
         contents=prompt
     )
 
-    return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>AI Resume Analysis</title>
-</head>
+        return render_template(
+            "result.html",
+            result=response.text
+        )
 
-<body>
+    except Exception as e:
 
-<h2>AI Resume Analysis</h2>
-
-{response.text}
-
-<br><br>
-
-<a href="/">Analyze Another Resume</a>
-
-</body>
-</html>
-"""
+        return f"""
+        <h2>Something went wrong.</h2>
+        <p>{e}</p>
+        <a href="/">Try Again</a>
+        """
 
 
 if __name__ == "__main__":
